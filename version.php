@@ -17,8 +17,7 @@
 /**
  * Version information for the Regexp question type.
  *
- * @package    qtype
- * @subpackage regexp
+ * @package    qtype_regexp
  * @copyright  2011 Joseph Rézeau moodle@rezeau.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,10 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'qtype_regexp';
 $plugin->dependencies = array(
-    'qbehaviour_regexpadaptivewithhelp'   => 2018050800,
-    'qbehaviour_regexpadaptivewithhelpnopenalty'  => 2018050800,
+    'qbehaviour_regexpadaptivewithhelp'   => 2021052300,
+    'qbehaviour_regexpadaptivewithhelpnopenalty'  => 2021052300
 );
-$plugin->version  = 2018050801;
-$plugin->requires = 2015051100; // Moodle version.
-$plugin->release = '3.5.1 for Moodle 2.9-3.5';
+$plugin->version  = 2021062600;
+$plugin->requires = 2016052300; // Moodle version.
+$plugin->release = '3.11.1 for Moodle 3.1-3.11';
 $plugin->maturity  = MATURITY_STABLE;

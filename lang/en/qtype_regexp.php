@@ -36,7 +36,7 @@ $string['calculatealternate'] = '(Re-)Calculate alternate answers';
 $string['caseno'] = 'No, case is unimportant';
 $string['casesensitive'] = 'Case sensitivity';
 $string['caseyes'] = 'Yes, case must match';
-$string['clicktosubmit'] = 'Click the <strong>Check</strong> button to submit this <strong>complete</strong> answer.';
+$string['clicktosubmit'] = 'Complete or correct your answer and click the <strong>Check</strong> button to submit it.';
 $string['correctansweris'] = '<strong>The correct answer is:</strong><br />{$a}';
 $string['correctanswersare'] = '<strong>The other accepted answers are:</strong>';
 $string['editingregexp'] = 'Editing regular expression question';
@@ -95,4 +95,7 @@ In <strong>Adaptive No penalty</strong> mode the button displayed will say "<str
 
 By default Help button mode value is set at <b>None</b>';
 $string['word'] = 'Word';
+$string['wordorpunctuation'] = 'Word or Punctuation';
 $string['privacy:metadata'] = 'The RegExp Question Type plugin does not store any personal data.';
+$string['wrongwords'] = 'Wrong words';
+$string['misplacedwords'] = 'Misplaced words';

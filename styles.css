@@ -14,14 +14,32 @@
 .que.regexp .answer input {
     width: 80%;
 }
-.misplacedword,
-.wrongword,
 .maxtotalpenalties {
     color: #f00;
 }
-.wrongword {
-    text-decoration: line-through;
+.misplacedword,
+.wrongword,
+.labelmisplacedword,
+.labelwrongword {
+    color: white;
 }
+.misplacedword,
+.labelmisplacedword {
+    background-color: #5cb85c;
+}
+.wrongword,
+.labelwrongword {
+    background-color: #d9534f;
+}
+.labelmisplacedword,
+.labelwrongword {
+    font-size: 75%;
+}
+
+.que.regexp .correctword {
+    color: #00f;
+}
+
 /* must be a monospace font for correct display of erroneous characters position */
 .displayvalidationerrors {
     font-family: Courier New, Courier, monospace;
@@ -80,4 +98,7 @@ body#page-question-type-regexp div[id^=fitem_id_][id*=feedback_] {
     padding-top: 5px;
     border: 1px solid #bbb;
     border-top: 0;
+}
+.btn .helpme[disabled] {
+    display: none;
 }

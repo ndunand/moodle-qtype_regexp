@@ -18,84 +18,98 @@
  * Serve question type files
  *
  * @since      2.0
- * @package    qtype
- * @subpackage regexp
+ * @package    qtype_regexp
  * @copyright  Joseph REZEAU
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+ defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Expand regexp.
+ * @param string $myregexp
+ */
 function expand_regexp($myregexp) {
     global $regexporiginal;
 
     // JR 16 DEC 2011 add parentheses if necessary; still need to detect un-parenthesized pipe.
-    $firstletter = substr($myregexp, 1);
-    $lastletter = substr($myregexp, -1);
-    if ( strstr($myregexp, '|') && $firstletter != '(' && $lastletter != ')') {
-        $myregexp = '('.$myregexp.')';
-    }
+    // JR 04 OCT 2019 removed this feature which caused a bug.
 
-    $regexporiginal=$myregexp;
+    $regexporiginal = $myregexp;
 
     $charlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
     // Change [a-c] to [abc] NOTE: ^ metacharacter is not processed inside [].
-        $pattern = '/\\[\w-\w\\]/';     // Find [a-c] in $myregexp.
+    $pattern = '/\\[\w-\w\\]/';     // Find [a-c] in $myregexp.
     while (preg_match($pattern, $myregexp, $matches, PREG_OFFSET_CAPTURE) ) {
         $result = $matches[0][0];
         $offset = $matches[0][1];
-        $stringleft = substr($myregexp, 0, $offset +1);
-        $stringright = substr($myregexp, $offset + strlen($result) -1);
+        $stringleft = substr($myregexp, 0, $offset + 1);
+        $stringright = substr($myregexp, $offset + strlen($result) - 1);
         $c1 = $result[1];
         $c3 = $result[3];
         $rs = '';
-        for ($c = strrpos($charlist, $c1); $c < strrpos($charlist, $c3) +1; $c++) {
-            $rs.= $charlist[$c];
+        for ($c = strrpos($charlist, $c1); $c < strrpos($charlist, $c3) + 1; $c++) {
+            $rs .= $charlist[$c];
         }
         $myregexp = $stringleft.$rs.$stringright;
 
     }
     // Provisionally replace existing escaped [] before processing the change [abc] to (a|b|c) JR 11-9-2007.
     // See Oleg http://moodle.org/mod/forum/discuss.php?d=38542&parent=354095.
-    while (strpos($myregexp, '\[')) {
-        $c1 = strpos($myregexp, '\[');
-        $c0 = $myregexp[$c1];
-        $myregexp = substr($myregexp, 0, $c1  ) .'¬' .substr($myregexp, $c1 + 2);
-    }
-    while (strpos($myregexp, '\]')) {
-        $c1 = strpos($myregexp, '\]');
-        $c0 = $myregexp[$c1];
-        $myregexp = substr($myregexp, 0, $c1  ) .'¤' .substr($myregexp, $c1 + 2);
-    }
+    // See https://moodle.org/mod/forum/discuss.php?d=251510#p1090642
+    // Replacement character changed to Unicode character Halloween 2018.
+
+    $pattern = '/\\\\\[/';
+    // Replace \[ with Unicode Character 'LEFT WHITE SQUARE BRACKET' (U+301A).
+    $replacement = '〚';
+    $count = 0;
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
+
+    $pattern = '/\\\\\]/';
+    // Replace \] with Unicode Character 'RIGHT WHITE SQUARE BRACKET' (U+301B).
+    $replacement = '〛';
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
+
+    // Halloween 2018 version: added similar treatment for excaped parentheses.
+    $pattern = '/\\\\\(/';
+    // Replace \( with Unicode Character 'FULLWIDTH LEFT PARENTHESIS' (U+FF08).
+    $replacement = '（';
+    $count = 0;
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
+
+    $pattern = '/\\\\\)/';
+    // Replace \) with Unicode Character 'FULLWIDTH RIGHT PARENTHESIS' (U+FF09).
+    $replacement = '）';
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
 
     // Change [abc] to (a|b|c).
-    $pattern =  '/\[.*?\]/';     // Find [abc] in $myregexp.
+    $pattern = '/\[.*?\]/';     // Find [abc] in $myregexp.
     // Added core_text to deal with utf8 accents etc.
     while (preg_match($pattern, $myregexp, $matches, PREG_OFFSET_CAPTURE) ) {
         $result = $matches[0][0];
-        $offset = $matches[0][1];
+        // Fixed utf8 problem in lengths.
+        $offset = core_text::strlen(substr($myregexp, 0, $matches[0][1]));
         $stringleft = core_text::substr($myregexp, 0, $offset);
         $stringright = core_text::substr($myregexp, $offset + core_text::strlen($result));
-        $rs = core_text::substr($result, 1, core_text::strlen($result) -2);
+        $rs = core_text::substr($result, 1, core_text::strlen($result) - 2);
         $r = '';
         $l = core_text::strlen($rs);
-        for ($i=0; $i < $l; $i++) {
+        for ($i = 0; $i < $l; $i++) {
             $r .= core_text::substr($rs, $i, 1).'|';
         }
         $rs = '('.core_text::substr($r, 0, core_text::strlen($r) - 1).')';
         $myregexp = $stringleft.$rs.$stringright;
     }
 
-    // We can now safely restore the previously replaced escaped [].
-    while (strpos($myregexp, '¬')) {
-        $c1 = strpos($myregexp, '¬');
-        $c0 = $myregexp[$c1];
-        $myregexp = substr($myregexp, 0, $c1  ) .'\[' .substr($myregexp, $c1 + 2);
-    }
-    while (strpos($myregexp, '¤')) {
-        $c1 = strpos($myregexp, '¤');
-        $c0 = $myregexp[$c1];
-        $myregexp = substr($myregexp, 0, $c1  ) .'\]' .substr($myregexp, $c1 + 2);
-    }
+    // We can now safely restore the previously replaced escaped square brakets.
+    $pattern = '/〚/';
+    $replacement = '\[';
+    $count = 0;
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
+
+    $pattern = '/〛/';
+    $replacement = '\]';
+    $myregexp = preg_replace ($pattern, $replacement, $myregexp, -1, $count);
 
     // Process ? in regexp (zero or one occurrence of preceding char).
     while (strpos($myregexp, '?')) {
@@ -105,13 +119,13 @@ function expand_regexp($myregexp) {
         // If \? -> escaped ?, treat as literal char (replace with ¬ char temporarily).
         // This ¬ char chosen because non-alphanumeric & rarely used...
         if ($c0 == '\\') {
-            $myregexp = substr($myregexp, 0, $c1 -1 ) .'¬' .substr($myregexp, $c1 + 1);
+            $myregexp = substr($myregexp, 0, $c1 - 1 ) .'¬' .substr($myregexp, $c1 + 1);
             continue;
         }
         // If )? -> meta ? action upon parens (), replace with ¤ char temporarily.
         // This ¤ char chosen because non-alphanumeric & rarely used...
         if ($c0 == ')') {
-            $myregexp = substr( $myregexp, 0, $c1 -1 ) .'¤' .substr($myregexp, $c1 + 1);
+            $myregexp = substr( $myregexp, 0, $c1 - 1 ) .'¤' .substr($myregexp, $c1 + 1);
             continue;
         }
         // If ? metacharacter acts upon an escaped char, put it in $c2.
@@ -121,13 +135,13 @@ function expand_regexp($myregexp) {
         $c2 = '('.$c0.'|)';
         $myregexp = str_replace($c0.'?', $c2, $myregexp);
     }
-    // Teplaces possible temporary ¬ char with escaped question mark.
-    if (strpos( $myregexp, '¬') != -1) {
+    // Replaces possible temporary ¬ char with escaped question mark.
+    if (strpos( $myregexp, '¬') != - 1) {
         $myregexp = str_replace('¬', '\?', $myregexp);
         $regexporiginal = $myregexp;
     }
     // Replaces possible temporary ¤ char with escaped question mark.
-    if (strpos( $myregexp, '¤') != -1) {
+    if (strpos( $myregexp, '¤') != - 1) {
         $myregexp = str_replace('¤', ')?', $myregexp);
     }
 
@@ -158,8 +172,8 @@ function expand_regexp($myregexp) {
     if (strpos($myregexp, '^')) {
         $myregexp = substr($myregexp, 1);
     }
-    if (strpos($myregexp, '$') == strlen($myregexp) -1) {
-        $myregexp = substr( $myregexp, 0, strlen($myregexp) -1);
+    if (strpos($myregexp, '$') == strlen($myregexp) - 1) {
+        $myregexp = substr( $myregexp, 0, strlen($myregexp) - 1);
     }
 
     $mynewregexp = find_nested_ors($myregexp);     // Check $myregexp for nested parentheses.
@@ -168,14 +182,28 @@ function expand_regexp($myregexp) {
     }
 
     $result = find_ors($myregexp);     // Expand parenthesis contents.
-    if ( is_array($result) ) {
-        $results = implode('\n', $result);
+
+    // We can now restore any previously replaced escaped parentheses.
+    if ( !is_array($result) ) {
+        $results[0] = $result;
+    } else {
+        $results = $result;
     }
-    return $result;    // Returns array of alternate strings.
+    $i = 0;
+    foreach ($results as $result) {
+        $toreplace = array('（', '）');
+        $replacewith = array('(', ')');
+        $results[$i] = strtr($result, array_combine($toreplace, $replacewith));
+        $i++;
+    }
+    return $results;    // Returns array of alternate strings.
 }
 
-// Find individual $nestedors expressions in $myregexp.
-// Return false.
+/**
+ * Find individual $nestedors expressions in $myregexp.
+ * @param string $mystring
+ *
+ */
 function is_nested_ors ($mystring) {
     $orsstart = 0; $orsend = 0; $isnested = false; $parens = 0; $result = '';
     for ($i = 0; $i < strlen($mystring); $i++) {
@@ -210,16 +238,19 @@ function is_nested_ors ($mystring) {
     return false;
 }
 
-// Find nested parentheses.
+/**
+ * Find nested parentheses in $myregexp.
+ * @param string $myregexp
+ */
 function is_parents ($myregexp) {
     $finalresult = null;
     $pattern = '/[^(|)]*\\(([^(|)]*\\|[^(|)]*)+\\)[^(|)]*/';
     if (preg_match_all($pattern, $myregexp, $matches, PREG_OFFSET_CAPTURE)) {
         $matches = $matches[0];
-        for ($i=0; $i<count($matches); $i++) {
+        for ($i = 0; $i < count($matches); $i++) {
             $thisresult = $matches[$i][0];
             $leftchar = $thisresult[0];
-            $rightchar = $thisresult[strlen($thisresult) -1];
+            $rightchar = $thisresult[strlen($thisresult) - 1];
             $outerchars = $leftchar .$rightchar;
             if ($outerchars !== '()') {
                 $finalresult = $thisresult;
@@ -231,7 +262,10 @@ function is_parents ($myregexp) {
     return $finalresult;
 }
 
-// Find ((a|b)c).
+/**
+ * Find ((a|b)c).
+ * @param string $myregexp
+ */
 function find_nested_ors ($myregexp) {
     // Find next nested parentheses in $myregexp.
     while ($nestedors = is_nested_ors ($myregexp)) {
@@ -242,6 +276,10 @@ function find_nested_ors ($myregexp) {
             $leftchar = $nestedors[strpos($nestedors, $myparent) - 1];
             $rightchar = $nestedors[strpos($nestedors, $myparent) + strlen($myparent)];
             $outerchars = $leftchar.$rightchar;
+            // Fixed DECEMBER 2018.
+            $leftpar = '';
+            $rightpar = '';
+            // End fix.
             switch ($outerchars) {
                 case '||':
                 case '()':
@@ -270,9 +308,9 @@ function find_nested_ors ($myregexp) {
         while (preg_match($pattern, $nestedors, $matches, PREG_OFFSET_CAPTURE)) {
             $plainors = $matches[0][0];
             $leftchar = $plainors[0];
-            $rightchar = $plainors[strlen($plainors) -1];
+            $rightchar = $plainors[strlen($plainors) - 1];
             // Remove leading & trailing chars.
-            $plainors2 = substr($plainors, 1, strlen($plainors) -2);
+            $plainors2 = substr($plainors, 1, strlen($plainors) - 2);
             $plainors2 = str_replace(  '(',  '', $plainors2);
             $plainors2 = str_replace(  ')',  '', $plainors2);
             $plainors2 = $leftchar .$plainors2 .$rightchar;
@@ -310,7 +348,7 @@ function find_nested_ors ($myregexp) {
             }
             $r = preg_match($patternsingleors, $nestedors, $matches, PREG_OFFSET_CAPTURE);
             $singleparens = $matches[0][0];
-            $myresult = substr($singleparens, 1, strlen($singleparens)-2);
+            $myresult = substr($singleparens, 1, strlen($singleparens) - 2);
             $nestedors = str_replace( $singleparens, $myresult, $nestedors);
             if (is_parents ($nestedors) != null) {
                 $myregexp = str_replace( $nestedorsoriginal, $nestedors, $myregexp);
@@ -320,10 +358,14 @@ function find_nested_ors ($myregexp) {
         }
         $myregexp = str_replace( $nestedorsoriginal, $nestedors, $myregexp);
 
-    } // End while ($nestedors = is_nested_ors ($myregexp)).
+    }
     return $myregexp;
 }
 
+/**
+ * Find ors.
+ * @param string $mystring
+ */
 function find_ors ($mystring) {
     global $regexporiginal;
 
@@ -350,32 +392,34 @@ function find_ors ($mystring) {
     return(expand_ors ($plainparts, $plainors));
 }
 
+/**
+ * This function expands a chunk of words containing a single set of parenthesized alternatives
+ * of the type: <(aaa|bbb)> OR <ccc (aaa|bbb)> OR <ccc (aaa|bbb) ddd> etc.
+ * into a LIST of possible alternatives,
+ * e.g. <ccc (aaa|bbb|)> -> <ccc aaa>, <ccc bbb>, <ccc>.
+ * @param string $plainparts
+ * @param string $plainors
+ */
 function expand_ors ($plainparts, $plainors) {
-    /* This function expands a chunk of words containing a single set of parenthesized alternatives
-    of the type: <(aaa|bbb)> OR <ccc (aaa|bbb)> OR <ccc (aaa|bbb) ddd> etc.
-    into a LIST of possible alternatives,
-    e.g. <ccc (aaa|bbb|)> -> <ccc aaa>, <ccc bbb>, <ccc>.
-    */
-
     $expandedors = array();
     $expandedors[] = '';
     $slen = count($expandedors);
-    $expandedors[$slen-1] = '';
-    // Condition isset($plainparts[0]) added 14 SEP 2011.
+    $expandedors[$slen - 1] = '';
+
     if (isset($plainparts[0]) && $plainparts[0] == 0) { // If chunk begins with $plainparts.
-        $expandedors[$slen-1] = $plainparts[1];
+        $expandedors[$slen - 1] = $plainparts[1];
         array_splice($plainparts, 0, 2);
     }
-    while ((count($plainparts) !=0) || (count($plainors) !=0)) { // Go through sentence $plainparts.
+    while ((count($plainparts) != 0) || (count($plainors) != 0)) { // Go through sentence $plainparts.
         $l = count($expandedors);
-        for ($k=0; $k<$l; $k++) {
-            for ($m=0; $m < count($plainors[1]); $m++) {
+        for ($k = 0; $k < $l; $k++) {
+            for ($m = 0; $m < count($plainors[1]); $m++) {
                 $expandedors[] = '';
-                $slen = count($expandedors) -1;
+                $slen = count($expandedors) - 1;
                 $expandedors[$slen] = $expandedors[0].$plainors[1][$m];
                 if (count($plainparts)) {
                     if ($plainparts[1]) {
-                        $expandedors[$slen] .=$plainparts[1];
+                        $expandedors[$slen] .= $plainparts[1];
                     }
                 }
                 $expandedors[$slen] = rawurldecode($expandedors[$slen]);
@@ -395,6 +439,11 @@ function expand_ors ($plainparts, $plainors) {
     return ($expandedors);
 }
 
+/**
+ * Index plain parts.
+ * @param string $mystring
+ * @param array $plainparts
+ */
 function index_plain_parts($mystring, $plainparts) {
     $indexedplainparts = array();
     if (is_array($plainparts) ) {
@@ -409,12 +458,17 @@ function index_plain_parts($mystring, $plainparts) {
     return ($indexedplainparts);
 }
 
+/**
+ * Index plain ors.
+ * @param string $mystring
+ * @param array $plainors
+ */
 function index_ors($mystring, $plainors) {
     $indexedplainors = array();
     foreach ($plainors as $ors) {
         foreach ($ors as $or) {
             $indexedplainors[] = $or[1];
-            $o = substr($or[0], 1, strlen($or[0]) -2);
+            $o = substr($or[0], 1, strlen($or[0]) - 2);
             $o = explode('|', $o);
             $indexedplainors[] = $o;
         }
@@ -422,7 +476,14 @@ function index_ors($mystring, $plainors) {
     return ($indexedplainors);
 }
 
-// Functions adapted from Hot Potatoes.
+/**
+ * Function adapted from Hot Potatoes.
+ * Check beginning
+ * @param string $guess
+ * @param string $answer
+ * @param boolean $ignorecase
+ * @return string $outstring
+ */
 function check_beginning( $guess, $answer, $ignorecase) {
     $outstring = '';
     if ($ignorecase) {
@@ -433,7 +494,7 @@ function check_beginning( $guess, $answer, $ignorecase) {
 
     $i1 = core_text::strlen($guess);
     $i2 = core_text::strlen($answer);
-    for ($i=0; ( $i< $i1 && $i< $i2); $i++) {
+    for ($i = 0; ( $i < $i1 && $i < $i2); $i++) {
         if (strlen($answer) < $i ) {
             break;
         }
@@ -450,6 +511,15 @@ function check_beginning( $guess, $answer, $ignorecase) {
     return $outstring;
 }
 
+/**
+ * Function adapted from Hot Potatoes.
+ * Get closest.
+ * @param string $guess
+ * @param string $answers
+ * @param boolean $ignorecase
+ * @param int $ishint
+ * @return array $closest
+ */
 function get_closest( $guess, $answers, $ignorecase, $ishint) {
     $closest[0] = ''; // Closest answer to be displayed as input field value.
     $closest[1] = ''; // Closest answer to be displayed in feedback line.
@@ -457,6 +527,7 @@ function get_closest( $guess, $answers, $ignorecase, $ishint) {
                       // Complete (correct response achieved), nil (beginning of sentence).
     $closest[3] = ''; // Student's guess (rest of).
     $closest[4] = ''; // Added letter or word (according to Help mode).
+    $closest[5] = ''; // Flag the type of errors: [0]wrong; [1]misplaced.
     $closesta = '';
     $l = core_text::strlen($guess);
     $ignorebegin = '';
@@ -468,133 +539,178 @@ function get_closest( $guess, $answers, $ignorecase, $ishint) {
         $rightbits[0][] = $answer;
         $rightbits[1][] = check_beginning($guess, $answer, $ignorecase, $ishint);
     }
-    $s = count($rightbits);
-    $longest = 0;
-    if ($s) {
-        $a = $rightbits[0];
-        $s = count($a);
-        for ($i=0; $i<$s; $i++) {
-            $a = $rightbits[0][$i];
-            $g = $rightbits[1][$i];
-            if (core_text::strlen($g) > $longest) {
-                $longest = core_text::strlen($g);
-                $closesta = $g;
-                if ($ishint) {
-                    $closest[2] = 'plus';
-                    $closesta_hint = $closesta;
-                    $closesta_hint .= core_text::substr($a, $longest, 1);
-                    $lenguess = core_text::strlen($guess);
-                    $lenclosesta_hint = core_text::strlen($closesta_hint) - 1;
-                    if ($lenguess > $lenclosesta_hint) {
-                        $closest[2] = 'minus';
-                    }
-                    if (core_text::substr($a, $longest, 1) == ' ') { // If hint letter is a space, add next one.
-                        $closesta_hint .= core_text::substr($a, $longest + 1, 1);
-                    }
-                    // Word help ADDED JR 18 DEC 2011.
-                    if ($ishint > 1) {
-                        if (preg_match('/\s.*/', $a, $matches, PREG_OFFSET_CAPTURE, strlen($g) + 1) ) {
-                            $closesta_hint = substr($a, 0, $matches[0][1]);
-                        } else {
-                            $closesta_hint = $a;
-                        }
-                    }
-
-                    // JR 13 OCT 2012 to fix potential html format tags inside correct answer.
-                    $aa = preg_replace("/\//", "\/", $a);
-
-                    if ( preg_match('/^'.$aa.'$/'.$ignorecase, $closesta_hint)) {
+    $longestanswerlen = max(array_map('core_text::strlen', $rightbits[1]));
+    // Function get_max located at the end of this locallib.
+    $indexoflongest = get_max($rightbits[1], 0, 0);
+    if ($longestanswerlen) {
+        // Var $a = alternative correct answer.
+        // Var $g = current best student answer so far.
+        $a = $rightbits[0][$indexoflongest];
+        $g = $rightbits[1][$indexoflongest];
+        $closesta = trim($g);
+        $closestahint = '';
+        if ($ishint) {
+            $closest[2] = 'plus';
+            $closestahint = $closesta;
+        }
+        switch ($ishint) {
+            case 1: // Get or buy one character (letter of punctuation mark).
+                $closestahint = $closesta;
+                $closestahint .= core_text::substr($a, $longestanswerlen, 1);
+                $lenguess = core_text::strlen($guess);
+                $lenclosestahint = core_text::strlen($closestahint);
+                if ($lenguess > $lenclosestahint) {
+                    $closest[2] = 'minus';
+                }
+                if (core_text::substr($a, $longestanswerlen, 1) == ' ') { // If hint letter is a space, add next one.
+                    $closestahint .= core_text::substr($a, $longestanswerlen + 1, 1);
+                }
+                break;
+            case 2: // Get or buy one word (including punctuation).
+                $pattern = '/\s.*/';
+                if (preg_match($pattern, $a, $matches, PREG_OFFSET_CAPTURE, strlen($g) + 1) ) {
+                    $closestahint = substr($a, 0, $matches[0][1]);
+                } else {
+                    $pattern = '/.*$/'; // End of sentence.
+                    if (preg_match($pattern, $a, $matches, PREG_OFFSET_CAPTURE, core_text::strlen($g)) ) {
+                        $closestahint = $a;
                         $closest[2] = 'complete'; // Hint gives a complete correct answer.
-                        $state = new stdClass(); // Instantiate $state explicitely for PHP 5.3 compliance.
-                        $state->raw_grade = 0;
-                        break;
-                    }
-                    if ($ignorecase) {
-                        $ignorebegin = !preg_match('/'.$g.'/', $a);
                     }
                 }
-            }
+                break;
+            case 3:  // Get or buy one word OR one punctuation mark.
+                $pattern = '/(\s|(?<!\w)[\p{P}]|[\p{P}](?!\w))/';
+                if (preg_match($pattern, $a, $matches, PREG_OFFSET_CAPTURE, strlen($g) + 1) ) {
+                    $index = 0;
+                    $pattern = '/\s[\p{P}]/';
+                    if (preg_match($pattern, $a, $ma, PREG_OFFSET_CAPTURE, strlen($g)) ) {
+                        if ($matches[0][1] == $ma[0][1] + 1) {
+                            $index = 1;
+                        }
+                    }
+                    $closestahint = substr($a, 0, $matches[0][1] + $index);
+                } else {
+                    $pattern = '/.*$/'; // End of sentence.
+                    if (preg_match($pattern, $a, $matches, PREG_OFFSET_CAPTURE, core_text::strlen($g)) ) {
+                        $closestahint = $a;
+                        $closest[2] = 'complete'; // Hint gives a complete correct answer.
+                    }
+                }
+        }
+
+        // JR 13 OCT 2012 to fix potential html format tags inside correct answer.
+        $aa = preg_replace("/\//", "\/", $a);
+        if ( preg_match('/^'.$aa.'$/'.$ignorecase, $closestahint)) {
+            $closest[2] = 'complete'; // Hint gives a complete correct answer.
+            $state = new stdClass(); // Instantiate $state explicitely for PHP 5.3 compliance.
+            $state->raw_grade = 0;
         }
     }
-    $closest[0] = $closesta;
+
     // Student clicked the help button with an empty answer.
-    if ($closest[0] == '' && $ishint) {
-    	$closest[2] = 'plus';
-    	$answer = $answers[0];
-    	switch ($ishint) {
-    		case 1: // Add letter.
-    			$closesta_hint = $answer[0];
-    			break;
-            case 2: // Add word.
-            	$words = explode(' ', $answer);
-                $closesta_hint = $words[0];
+    $a = $rightbits[0][$indexoflongest];
+    if ($closesta == '' && $ishint) {
+        $closest[2] = 'plus';
+        $answer = $answers[0];
+        switch ($ishint) {
+            case 1: // Add letter.
+                $closestahint = core_text::substr($a, 0, 1);
                 break;
-    	}
+            case 2: // Add word.
+                $words = explode(' ', $answer);
+                $closestahint = $words[0];
+                break;
+            case 3: // Add word or punctuation.
+                // Return fist word OR punctuation sign (e.g. Spanish inverted ? or !).
+                $pattern = '/^([\p{P}]|\s*([a-zA-Z0-9]+))/u';
+                preg_match ($pattern, $a, $matches, PREG_OFFSET_CAPTURE);
+                $closestahint = $matches[0][0];
+        }
     }
 
     // Type of hint state.
     switch ($closest[2]) {
         case 'plus':
-            $closest[0] = $closesta_hint;
+            $closest[0] = $closestahint;
             $closest[1] = $guess;
             if ($ignorebegin) {
                 $closest[1] = '';
             }
-            $closest[4] = str_replace($guess, "", $closesta_hint);
+            $closest[4] = substr ($closestahint, strlen($closesta));
             break;
         case 'minus':
-            $closest[0] = $closesta_hint;
+        case 'complete':
             $closest[1] = $closesta;
+            $closest[4] = substr ($closestahint, strlen($closesta));
+        case 'minus':
+            $closest[0] = $closestahint;
             break;
         case 'complete':
             $closest[0] = $a;
-            $closest[1] = $a;
             break;
         default:
             $closest[0] = $closesta;
             $closest[1] = $closest[0];
     }
+
     // Search for correct *words* in student's guess, after closest answer has been found
     // and even if closest answer is null JR 26 FEB 2012.
-    if ($closest[2] != 'complete') {
-        $nbanswers = count ($answers);
-        $lenclosesta = strlen($closest[0]);
-        $minus = 0;
-        if ($closest[2] == 'minus') {
-            $minus = 1;
+    // JR DEC 2020 If word was bought, response can be complete but with extra text, so we need to look for rest of answer.
+
+    $lenclosesta = strlen($closest[0]) - strlen($closest[4]);
+    $closest[1] = substr($closest[0], 0, $lenclosesta);
+    $restofanswer = substr($guess, $lenclosesta);
+    $restofanswer = implode(' ', explode(' ', $restofanswer));
+
+    // Local function get_max at end of this  l ocallib.
+    $indexoflongest = get_max($rightbits[1], 0, 0);
+    $restofanswers = $rightbits[0][$indexoflongest];
+
+    if ($restofanswer) {
+        unset($array1, $array2);
+        // Count punctuation marks as words - except within within words themselves.
+        // Does not work for French number format (space separator).
+        $pattern = "/(\s|(?<!\w)[\p{P}]|[\p{P}](?!\w))/";
+        $flags = PREG_SPLIT_DELIM_CAPTURE;
+        $array1 = preg_split($pattern, $restofanswer, - 1, $flags);
+        $array2 = preg_split($pattern, $restofanswers, - 1, $flags);
+        // Filter arrays to remove empty values.
+        $array1 = array_filter(array_map('trim', $array1));
+        $array2 = array_filter(array_map('trim', $array2));
+        $misplacedwords = array_intersect($array1, $array2);
+        // Remove potential duplicate words.
+        $misplacedwords = array_unique($misplacedwords);
+        foreach ($misplacedwords as $key => $value) {
+            $misplacedwords[$key] = '<span class="misplacedword">&nbsp;'.$value.'&nbsp;</span>';
         }
-        $restofanswer = substr($guess, $lenclosesta - $minus);
-        // 24 APRIL 2013 thanks to Jeff F.
-        // this does not work in case expected answer is e.g. "two twenty thirty" and student guess is "twenty two thirty"
-        // so for the moment, let's replace this loop with simply setting $restofanswers to $rightbits[0][0].
-        $restofanswers = $rightbits[0][0];
-        if ($restofanswer) {
-            $wordsinrestofanswer = preg_split('/ /', $restofanswer);
-            $i = 0;
-            unset($array1, $array1);
-            $array1 = preg_split("/[\s,]+/", $restofanswer);
-            $array2 = preg_split("/[\s,]+/", $restofanswers);
-            $misplacedwords = array_intersect($array1, $array2);
-            $wrongwords = array_diff($array1, $array2);
-            foreach ($wrongwords as $key => $value) {
-                $wrongwords[$key] = '<span class="wrongword">'.$value.'</span>';
-            }
-            unset ($result);
-            $result =  $misplacedwords + $wrongwords;
-            ksort($result);
-            $result = implode (" | ", $result);
-            $guess = '<span class="misplacedword">'.$result.'</span>';
-            $closest[3] = $guess;
-            unset ($result);
+        $wrongwords = array_diff($array1, $array2);
+        $closest[5] = (count($misplacedwords) !== 0);
+        if (count($wrongwords) !== 0) {
+            $closest[5] = $closest[5] + 10;
         }
+        foreach ($wrongwords as $key => $value) {
+            $wrongwords[$key] = '<span class="wrongword">&nbsp;'.$value.'&nbsp;</span> ';
+        }
+        unset ($result);
+        $result = $misplacedwords + $wrongwords;
+        ksort($result);
+        $result = implode (' ', $result);
+        $closest[3] = $result;
+        unset ($result);
     }
+
     return $closest;
 }
-// End of functions adapted from Hot Potatoes.
 
-// Function to find whether student's response matches at least the beginning of one of the correct answers.
-
-function find_closest($question, $currentanswer, $correct_response=false, $hintadded = false) {
+/**
+ * Find whether student's response matches at least the beginning of one of the correct answers.
+ * @param array $question
+ * @param string $currentanswer
+ * @param boolean $correctresponse
+ * @param boolean $hintadded
+ * @return array $closest
+ */
+function find_closest($question, $currentanswer, $correctresponse = false, $hintadded = false) {
     global $CFG;
     // JR dec 2011 moved get alternate answers to new function.
     $alternateanswers = get_alternateanswers($question);
@@ -608,7 +724,6 @@ function find_closest($question, $currentanswer, $correct_response=false, $hinta
                     $alternatecorrectanswers[] = $alternate;
                 }
             }
-            $SESSION->qtype_regexp_question->alternatecorrectanswers[$qid] = $alternatecorrectanswers;
         }
     }
     // Testing ignorecase.
@@ -620,25 +735,25 @@ function find_closest($question, $currentanswer, $correct_response=false, $hinta
     $ishint = $question->usehint * $hintadded;
 
     // Find closest answer matching student response.
-    if (!isset($currentanswer) && !$correct_response) {
+    if (!isset($currentanswer) && !$correctresponse) {
         return null;
     }
-    if ($correct_response) {
+    if ($correctresponse) {
         return $alternatecorrectanswers;
     }
     $closest = get_closest( $currentanswer, $alternatecorrectanswers, $ignorecase, $ishint);
     if ($closest[2] == 'complete') {
         return $closest;
     }
-    // Give first character of firstcorrectanswer to student (if option usehint for this question).
-    // TODO JR maybe not?
-    /*if ($closest[0] == '' && ($question->usehint == true) && $closest[2] == 'nil' ) {
-        $closest[0] = $core_text->substr($firstcorrectanswer, 0, 1);
-    }*/
+
     return $closest;
 }
 
-// Remove extra blank spaces from student's response.
+/**
+ * Remove extra blank spaces from student's response.
+ * @param string $text
+ * @return string $text
+ */
 function remove_blanks($text) {
     // Finds 2 successive spaces (note: \s does not work with French 'à' character!
     $pattern = "/  /";
@@ -648,13 +763,18 @@ function remove_blanks($text) {
     return $text;
 }
 
-// Check that parentheses and square brackets are balanced, including nested ones.
+/**
+ * Check that parentheses and square brackets are balanced, including nested ones.
+ * @param string $myregexp
+ * @param string $markedline
+ * @return string
+ */
 function check_my_parens($myregexp, $markedline) {
     $parens = array();
     $sqbrackets = array();
 
     // Walk the $myregexp string to find parentheses and square brackets.
-    for ($i = 0; $i<strlen($myregexp); $i++) {
+    for ($i = 0; $i < strlen($myregexp); $i++) {
         $escaped = false;
         if ($i > 0 && $myregexp[$i - 1] == "\\") {
             $escaped = true;
@@ -690,6 +810,13 @@ function check_my_parens($myregexp, $markedline) {
     }
 }
 
+/**
+ * Check that parentheses and square brackets are balanced.
+ * @param array $bracketstype
+ * @param array $tags
+ * @param string $markedline
+ * @return string
+ */
 function check_balanced ($bracketstype, $tags, $markedline) {
     $open = array();
     foreach ($bracketstype as $key => $value) {
@@ -720,32 +847,30 @@ function check_balanced ($bracketstype, $tags, $markedline) {
     return $markedline;
 }
 
+/**
+ * Detect un-escaped metacharacters.
+ * Full list of metacharacters used in regular expressions syntax.
+ * ALL these characters can be used as metacharacters in INCORRECT Answers (grade = None)
+ * . ^ $ * ( ) [ ] + ? | { } \ *
+ * Characters which can NOT be used as metacharacters in an accepted Answer (grade > 0)
+ * and MUST be escaped if used for their LITERAL value: . ^ $ * + { } \
+ * Characters which CAN be used as metacharacters in an accepted Answer (grade > 0)
+ * and must be escaped IF used for their LITERAL value: use of those characters
+ * must lead to alternative CORRECT answers ( ) [ ] | ?
+ * @param string $myregexp
+ * @param string $markedline
+ * @return string
+ */
 function check_unescaped_metachars ($myregexp, $markedline) {
-    // Joseph Rezeau 02 SEPTEMBER 2011
-    // function to detect un-escaped metacharacters.
-
-    /* Full list of metacharacters used in regular expressions syntax.
-    ALL these characters can be used as metacharacters in INCORRECT Answers (grade = None)
-        . ^ $ * ( ) [ ] + ? | { } \
-
-    Characters which can NOT be used as metacharacters in an accepted Answer (grade > 0)
-        and MUST be escaped if used for their LITERAL value: . ^ $ * + { } \
-
-    Characters which CAN be used as metacharacters in an accepted Answer (grade > 0)
-        and must be escaped IF used for their LITERAL value: use of those characters
-        must lead to alternative CORRECT answers
-        ( ) [ ] | ?
-    */
     $markedline2 = $markedline;
     // All metacharacters must be escaped.
-
     // Check for unescaped metacharacters, except for backslash itself.
-    $unescaped_regex = '/(?<!\\\\)[\.\^\$\*\+\{\}]/';
+    $unescapedregex = '/(?<!\\\\)[\.\^\$\*\+\{\}]/';
     // 1 (?<!\\\\) NO backslash preceding (this is a negative lookahead assertion)
     // 2 [\.\^\$\*\+\{\}] list of metacharacters which can NOT be used in context of accepted Answer (grade > 0).
 
-    $unescaped_metachars = preg_match_all($unescaped_regex, $myregexp, $matches, PREG_OFFSET_CAPTURE);
-    if ($unescaped_metachars) {
+    $unescapedmetachars = preg_match_all($unescapedregex, $myregexp, $matches, PREG_OFFSET_CAPTURE);
+    if ($unescapedmetachars) {
         foreach ($matches as $v1) {
             // In marked line, replace blank spaces with the unescaped metacharacter.
             foreach ($v1 as $v2) {
@@ -755,13 +880,14 @@ function check_unescaped_metachars ($myregexp, $markedline) {
     }
 
     // Now check for unescaped backslashes.
-    $unescaped_regex = '/(^|[^\\\])\\\[^\.|\*|\(|\\[\]\{\}\/)\+\?\^\|\$\.]/';
-    // 1 (^|[^\\\]) = beginning of sentence OR no backslash.
-    // 2 \\\ = followed by backslash.
-    // 3 [^\.|\*|\(|\\[\]\{\}\/)\+\?\^\|\$\.] = NOT followed by a metacharacter.
+    $unescapedregex = '/(^|[^\\\])\\\[^\.|\*|\(|\\[\]\{\}\/)\+\?\^\|\$\.]/';
+    /* First part of regexp: beginning of sentence OR no backslash.
+     Second part of regexp: followed by backslash.
+     This is the third part of regexp: NOT followed by a metacharacter.
+     */
 
-    $unescaped_metachars = preg_match_all($unescaped_regex, $myregexp, $matches, PREG_OFFSET_CAPTURE);
-    if ($unescaped_metachars) {
+    $unescapedmetachars = preg_match_all($unescapedregex, $myregexp, $matches, PREG_OFFSET_CAPTURE);
+    if ($unescapedmetachars) {
         $foundbackslash = substr($matches[0][0][0], 1, 3);
         // We must skip a valid escaped backslash.
         if ($foundbackslash != "\\\\") {
@@ -780,21 +906,29 @@ function check_unescaped_metachars ($myregexp, $markedline) {
     }
 }
 
-// When displaying unescaped_metachars or unbalanced brackets, too long strings need to be cut up into chunks.
-// Change $maxlen if necessary (e.g. to fit smaller width screens).
-function splitstring ($longstring, $maxlen=75) {
+/**
+ * When displaying unescaped_metachars or unbalanced brackets, too long strings need to be cut up into chunks.
+ * Change $maxlen if necessary (e.g. to fit smaller width screens).
+ * @param string $longstring
+ * @param int $maxlen
+ */
+function splitstring ($longstring, $maxlen = 75) {
     $len = core_text::strlen($longstring);
     $stringchunks = array();
     if ($len < $maxlen) {
         $stringchunks [] = $longstring;
     } else {
-        for ($i=0; $i<$len; $i += $maxlen) {
+        for ($i = 0; $i < $len; $i += $maxlen) {
             $stringchunks [] = core_text::substr($longstring, $i, $maxlen);
         }
     }
     return $stringchunks;
 }
 
+/**
+ * Expand regexp.
+ * @param array $question
+ */
 function get_alternateanswers($question) {
     global $CFG, $SESSION;
     $qid = '';
@@ -811,7 +945,7 @@ function get_alternateanswers($question) {
         if ($answer->fraction != 0) {
             // This is Answer 1 :: do not process as regular expression.
             if ($i == 1) {
-                $alternateanswers[$i]['fraction'] = ($answer->fraction*100).'%';
+                $alternateanswers[$i]['fraction'] = ($answer->fraction * 100).'%';
                 $alternateanswers[$i]['regexp'] = $answer->answer;
                 $alternateanswers[$i]['answers'][] = $answer->answer;
             } else {
@@ -820,7 +954,7 @@ function get_alternateanswers($question) {
                 // End permutations.
                 $r = expand_regexp($answer->answer);
                 if ($r) {
-                    $alternateanswers[$i]['fraction'] = ($answer->fraction*100).'%';
+                    $alternateanswers[$i]['fraction'] = ($answer->fraction * 100).'%';
                     $alternateanswers[$i]['regexp'] = $answer->answer;
                     if (is_array($r)) {
                         $alternateanswers[$i]['answers'] = $r; // Normal alternateanswers (expanded).
@@ -833,41 +967,51 @@ function get_alternateanswers($question) {
         $i++;
     }
     // Store alternate answers in SESSION for caching effect DEC 2011.
-    $SESSION->qtype_regexp_question->alternateanswers[$qid] = $alternateanswers;
-    $SESSION->qtype_regexp_question->alternatecorrectanswers[$qid] = '';
+    // Added isset check DEC 2020 to avoid error message (strict syntax).
+    if (isset($SESSION->qtype_regexp_question->alternateanswers)) {
+        $SESSION->qtype_regexp_question->alternateanswers[$qid] = $alternateanswers;
+        $SESSION->qtype_regexp_question->alternatecorrectanswers[$qid] = '';
+    }
     return $alternateanswers;
 }
 
-// JR added OCT 2012.
+/**
+ * Check permutations.
+ * @param string $ans
+ */
 function check_permutations($ans) {
     $p = preg_match_all("/\[\[(.*)\]\]/U", $ans, $matches);
-    if ($p==0) {
+    if ($p === 0) {
         return;
     }
-    if ($p>2) {
+    if ($p > 2) {
         return get_string("regexperrortoomanypermutations", "qtype_regexp");
     }
     $nbpermuted = count($matches[1]);
-    for ($i=0; $i<$nbpermuted; $i++) {
+    for ($i = 0; $i < $nbpermuted; $i++) {
         $ans = $matches[1][$i];
-        $p = preg_match_all("/(.*)_(.*)_.*/U", $ans, $matches_p);
-        if ($p==0) {
+        $p = preg_match_all("/(.*)_(.*)_.*/U", $ans, $matchesp);
+        if ($p === 0) {
             return get_string("regexperrornopermutations", "qtype_regexp");
         }
-        $p = preg_match_all("/_/", $ans, $matches_p);
-        $n = count($matches_p[0]);
-        if ($odd = $n%2) {
+        $p = preg_match_all("/_/", $ans, $matchesp);
+        $n = count($matchesp[0]);
+        if ($odd = $n % 2) {
             return get_string("regexperroroddunderscores", "qtype_regexp").' '.$n;
         }
     }
 }
 
+/**
+ * Check if $ans has permutations.
+ * @param string $ans
+ */
 function has_permutations($ans) {
     require_once('combinatorics.php');
     $combinatorics = new Math_Combinatorics;
     $staticparts = array();
     $p = preg_match_all("/\[\[(.*)\]\]/U", $ans, $matches);
-    if ($p==0) {
+    if ($p === 0) {
         return $ans;
     }
     $nbpermuted = count($matches[1]);
@@ -885,30 +1029,41 @@ function has_permutations($ans) {
     $nbstaticparts = count($staticparts);
     $res = array();
 
-    for ($i=0; $i<$nbpermuted; $i++) {
+    for ($i = 0; $i < $nbpermuted; $i++) {
         $res[$i] = '(';
         $ans = $matches[1][$i];
-        $p = preg_match_all("/(.*)_(.*)_.*/U", $ans, $matches_p);
-        $permutations = $combinatorics->permutations($matches_p[2]);
-        $nb = count($matches_p[2]);
-        $p = preg_match_all("/_.*_(.*)/", $ans, $matches_r);
+        $p = preg_match_all("/(.*)_(.*)_.*/U", $ans, $matchesp);
+        $permutations = $combinatorics->permutations($matchesp[2]);
+        $nb = count($matchesp[2]);
+        $p = preg_match_all("/_.*_(.*)/", $ans, $matchesr);
         $rightelement = '';
         if ($p) {
-            $rightelement = $matches_r[1][0];
+            $rightelement = $matchesr[1][0];
         }
         foreach ($permutations as $permutation) {
-            for ($j=0; $j<$nb; $j++) {
-                $res[$i] .=  $matches_p[1][$j] .$permutation[$j];
+            for ($j = 0; $j < $nb; $j++) {
+                $res[$i] .= $matchesp[1][$j] .$permutation[$j];
             }
             $res[$i] .= $rightelement.'|';
         }
         $res[$i] = rtrim($res[$i], '|');
-        $res[$i] .=')';
+        $res[$i] .= ')';
     }
     $result = '';
-    for ($i=0; $i<$nbstaticparts-1; $i++) {
+    for ($i = 0; $i < $nbstaticparts - 1; $i++) {
         $result .= $staticparts[$i].$res[$i];
     }
     $result .= $staticparts[$i];
     return $result;
+}
+
+/**
+ * See https://stackoverflow.com/questions/1762191/how-to-get-the-length-of-longest-string-in-an-array#1762216.
+ * @param array $array
+ * @param int $cur
+ * @param int $curmax
+ */
+function get_max($array, $cur, $curmax) {
+    return $cur >= count($array) ? $curmax :
+        get_max($array, $cur + 1, strlen($array[$cur]) > strlen($array[$curmax]) ? $cur : $curmax);
 }
