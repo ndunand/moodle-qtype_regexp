@@ -18,12 +18,15 @@
  * Serve question type files
  *
  * @since      2.0
- * @package    qtype
- * @subpackage regexp
+ * @package    qtype_regexp
  * @copyright  Joseph REZEAU
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+/**
+ * Upgrade code for the regexp question type.
+ * @param int $oldversion the version we are upgrading from.
+ */
 function xmldb_qtype_regexp_upgrade($oldversion) {
     global $CFG, $DB;
 
@@ -62,9 +65,9 @@ function xmldb_qtype_regexp_upgrade($oldversion) {
 
         // Launch rename field.
         if ($dbman->table_exists($table)) {
-        	if ($dbman->field_exists($table, $field)) {
-		        $dbman->rename_field($table, $field, 'questionid');
-        	}
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->rename_field($table, $field, 'questionid');
+            }
         }
         // Define field studentshowalternate to be added to qtype_regexp.
         $table = new xmldb_table('qtype_regexp');

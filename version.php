@@ -17,20 +17,21 @@
 /**
  * Version information for the Regexp question type.
  *
- * @package    qtype
- * @subpackage regexp
- * @copyright  2011 Joseph Rézeau moodle@rezeau.org
+ * @package    qtype_regexp
+ * @copyright  2011-2024 Joseph Rézeau moodle@rezeau.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'qtype_regexp';
-$plugin->dependencies = array(
-    'qbehaviour_regexpadaptivewithhelp'   => 2018050800,
-    'qbehaviour_regexpadaptivewithhelpnopenalty'  => 2018050800,
-);
-$plugin->version  = 2018050801;
-$plugin->requires = 2015051100; // Moodle version.
-$plugin->release = '3.5.1 for Moodle 2.9-3.5';
-$plugin->maturity  = MATURITY_STABLE;
+$plugin->dependencies = [
+    'qbehaviour_regexpadaptivewithhelp'   => 2024050200,
+    'qbehaviour_regexpadaptivewithhelpnopenalty'  => 2024050200,
+];
+$plugin->version  = 2024100800;
+// Require Moodle 4.2.0.
+// Require PHP 8.
+$plugin->requires = 2023042400.00;
+$plugin->release = '4.4';
+$plugin->maturity = MATURITY_STABLE;
